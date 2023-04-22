@@ -42,16 +42,36 @@ local MMTYPE_STA_IDENTIFY_REQ  = 0x6060
 local MMTYPE_STA_IDENTIFY_CNF  = 0x6061
 local MMTYPE_ERROR_IND         = 0x6046
 
+local beacon_slots = {
+    [0] = "1",
+    [1] = "2",
+    [2] = "3",
+    [3] = "4",
+    [4] = "5",
+    [5] = "6",
+    [6] = "7",
+    [7] = "8"
+}
+
 local bidir_bursting_values = {
     [0] = "no",
     [1] = "Selective ACK only",
     [2] = "Selective ACK or reverse start of frame"
 }
+
 local cco_capabilities = {
     [0] = "QoS and TDMA not supported",
     [1] = "QoS and TDMA in uncoordinated mode only",
     [2] = "QoS and TDMA in coordinated mode",
     [3] = "future"
+}
+
+local coordinating_status = {
+    [0] = "Status unknown",
+    [1] = "Non-coordinating network",
+    [2] = "Coordinating, group status unknown",
+    [3] = "Coordinating, in same group as this Central Coordinator",
+    [4] = "Coordinating, not in same group as this Central Coordinator"
 }
 
 local eebtm_values = {
@@ -84,6 +104,13 @@ local homeplug_av_station_types = {
 local homeplug_av_versions = {
     [0] = "1.1",
     [1] = "2.0"
+}
+
+local hybrid_modes = {
+    [0] = "AV only mode",
+    [1] = "Shared CSMA hybrid mode",
+    [2] = "Fully hybrid mode",
+    [3] = "Hybrid delimiters, frame lengths may be incompatible with HomePlug 1.0"
 }
 
 local mimo_capabilities = {
@@ -162,6 +189,11 @@ local reason_codes = {
    [2] = "Unsupported feature"
 }
 
+local security_levels = {
+    [0] = "Simple Connect",
+    [1] = "Secure"
+}
+
 local signal_levels = {
    [0x00] = "Unavailable",
    [0x01] = "> -10 dB, but <= 0 dB",
@@ -212,6 +244,14 @@ local pf = {
     sta_ble                  = ProtoField.string("homeplugav.sta.ble", "Average Bit Loading Estimate"),
     sta_ble_mantissa         = ProtoField.uint8("homeplugav.sta.ble.mantissa", "Mantissa", base.DEC, nil, 0xf8),
     sta_ble_exponent         = ProtoField.uint8("homeplugav.sta.ble.exponent", "Exponent", base.DEC, nil, 0x07),
+    nw_nid                   = ProtoField.uint64("homeplugav.nw.nid", "Network Identifier", base.HEX),
+    nw_nid_sl                = ProtoField.uint8("homeplugav.nw.nid.sl", "Security Level", base.DEC, security_levels, 0x30),
+    nw_network_kind          = ProtoField.uint8("homeplugav.nw.networkKind", "Network Type", base.DEC, network_kinds, 0xf0),
+    nw_snid                  = ProtoField.uint8("homeplugav.nw.snid", "Short Network Identifier", base.DEC, nil, 0x0f),
+    nw_hybrid_mode           = ProtoField.uint8("homeplugav.nw.hybridMode", "Hybrid Mode", base.DEC, hybrid_modes),
+    nw_beacon_slots          = ProtoField.uint8("homeplugav.nw.beaconSlots", "Number of Beacon Slots", base.DEC, beacon_slots),
+    nw_coord_status          = ProtoField.uint8("homeplugav.nw.coordStatus", "Coordinating Status of Central Coordinator", base.DEC, coordinating_status),
+    nw_offset                = ProtoField.string("homeplugav.nw.offset", "Offset between Beacon Regions"),
     mac_addr                 = ProtoField.ether("homeplugav.macAddr", "MAC Address"),
     homeplug_av_version      = ProtoField.uint8("homeplugav.hpavVersion", "HomePlug AV Version", base.DEC, homeplug_av_versions),
     oui                      = ProtoField.bytes("homeplugav.oui", "Organizationally Unique Identifier", base.COLON),
@@ -292,6 +332,10 @@ local function to_frequency_string(range)
     return result
 end
 
+local function to_network_offset(range)
+    return range:le_uint() * 10.24 .. " microseconds"
+end
+
 local function update_packet_info(pinfo)
     pinfo.cols.protocol = p_homeplug_av.name
 
@@ -365,7 +409,23 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
         local num_networks = f.num_networks()()
         for j = 1, num_networks do
             local network_tree = mme_tree:add(buffer(i, 13), "Network " .. j)
-            --  TODO dissect discovered network
+            do
+                local nid_tree = network_tree:add_le(pf.nw_nid, buffer(i, 7))
+                nid_tree.text = string.gsub(nid_tree.text, "0x00", "0x")
+                nid_tree:add_le(pf.nw_nid_sl, buffer(i + 6, 1))
+            end
+            do
+                local range = buffer(i + 7, 1)
+                network_tree:add_le(pf.nw_network_kind, range)
+                network_tree:add_le(pf.nw_snid, range)
+            end
+            network_tree:add_le(pf.nw_hybrid_mode, buffer(i + 8, 1))
+            network_tree:add_le(pf.nw_beacon_slots, buffer(i + 9, 1))
+            network_tree:add_le(pf.nw_coord_status, buffer(i + 10, 1))
+            do
+                local range = buffer(i + 11, 2)
+                network_tree:add_le(pf.nw_offset, range, to_network_offset(range))
+            end
             i = i + 13
         end
         mme_tree:set_len(i - 5)
