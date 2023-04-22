@@ -92,13 +92,13 @@ local mimo_capabilities = {
     [2] = "Beam forming"
 }
 
-local mmtype_info = {
-    [MMTYPE_DISCOVER_LIST_REQ] = "Get Discover List request",
-    [MMTYPE_DISCOVER_LIST_CNF] = "Get Discover List confirmation",
-    [MMTYPE_STA_CAP_REQ]       = "Get Station Capabilities request",
-    [MMTYPE_STA_CAP_CNF]       = "Get Station Capabilities confirmation",
-    [MMTYPE_STA_IDENTIFY_REQ]  = "Get Station Identification Information request",
-    [MMTYPE_STA_IDENTIFY_CNF]  = "Get Station Identification Information confirmation",
+local mmtypes = {
+    [MMTYPE_DISCOVER_LIST_REQ] = "Discover List request",
+    [MMTYPE_DISCOVER_LIST_CNF] = "Discover List confirmation",
+    [MMTYPE_STA_CAP_REQ]       = "Station Capabilities request",
+    [MMTYPE_STA_CAP_CNF]       = "Station Capabilities confirmation",
+    [MMTYPE_STA_IDENTIFY_REQ]  = "Station Identification Information request",
+    [MMTYPE_STA_IDENTIFY_CNF]  = "Station Identification Information confirmation",
     [MMTYPE_ERROR_IND]         = "Error indication"
 }
 
@@ -156,6 +156,12 @@ local power_levels = {
    [7] = "3.5 dB"
 }
 
+local reason_codes = {
+   [0] = "Management Message Entry not supported",
+   [1] = "Supported Management Message Entry with invalid fields",
+   [2] = "Unsupported feature"
+}
+
 local signal_levels = {
    [0x00] = "Unavailable",
    [0x01] = "> -10 dB, but <= 0 dB",
@@ -181,7 +187,7 @@ local regulatory_domains = {
 
 local pf = {
     mmv                      = ProtoField.uint8("homeplugav.mmv", "Management Message Version", base.DEC, mmvs),
-    mmtype                   = ProtoField.uint16("homeplugav.mmtype", "Management Message Type", base.HEX, mmtype_info),
+    mmtype                   = ProtoField.uint16("homeplugav.mmtype", "Management Message Type", base.HEX, mmtypes),
     mmtype_msbs              = ProtoField.uint16("homeplugav.mmtype.msbs", "Three MSBs", base.DEC, mmtype_msbs, 0xe000),
     mmtype_lsbs              = ProtoField.uint16("homeplugav.mmtype.lsbs", "Two LSBs", base.DEC, mmtype_lsbs, 0x0003),
     fmi                      = ProtoField.bytes("homeplugav.fmi", "Fragmentation Management Information", base.COLON),
@@ -243,7 +249,11 @@ local pf = {
     ef_frame_256             = ProtoField.uint8("homeplugav.ef.frame256", "256-bit Frame Control Capability", base.DEC, no_yes),
     ef_vsinfo_len            = ProtoField.uint16("homeplugav.ef.vsinfoLen", "Vendor-Specific Information Length", base.DEC),
     ef_vs_oui                = ProtoField.bytes("homeplugav.ef.vs.oui", "Organizationally Unique Identifier", base.COLON),
-    ef_vs_vendor_defined     = ProtoField.bytes("homeplugav.ef.vs.vendorDefined", "Vendor Defined", base.COLON)
+    ef_vs_vendor_defined     = ProtoField.bytes("homeplugav.ef.vs.vendorDefined", "Vendor Defined", base.COLON),
+    reason_code              = ProtoField.uint8("homeplugav.rc", "Reason Code", base.DEC, reason_codes),
+    rx_mmv                   = ProtoField.uint8("homeplugav.rxMmv", "Received Management Message Version", base.DEC, mmvs),
+    rx_mmtype                = ProtoField.uint16("homeplugav.rxMmtype", "Received Management Message Type", base.HEX, mmtypes),
+    invalid_octet_offset     = ProtoField.uint16("homeplugav.invalidOffset", base.DEC)
 }
 
 p_homeplug_av.fields = pf
@@ -257,7 +267,8 @@ local f = {
     oui                 = Field.new("homeplugav.oui"),
     homeplug_av_station = Field.new("homeplugav.hpavStation"),
     ef_vsinfo_len       = Field.new("homeplugav.ef.vsinfoLen"),
-    ef_vs_oui           = Field.new("homeplugav.ef.vs.oui")
+    ef_vs_oui           = Field.new("homeplugav.ef.vs.oui"),
+    reason_code         = Field.new("homeplugav.rc")
 }
 local function to_ble(range)
     local mantissa = f.sta_ble_mantissa()()
@@ -284,8 +295,8 @@ end
 local function update_packet_info(pinfo)
     pinfo.cols.protocol = p_homeplug_av.name
 
-    if mmtype_info[mmtype] ~= nil then
-        pinfo.cols.info:set(mmtype_info[mmtype])
+    if mmtypes[mmtype] ~= nil then
+        pinfo.cols.info:set(mmtypes[mmtype])
     end
 end
 
@@ -424,7 +435,16 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
             end
         end
     elseif mmtype == MMTYPE_ERROR_IND then
-        -- TODO implement
+        mme_tree:add_le(pf.reason_code, buffer(5, 1))
+        mme_tree:add_le(pf.rx_mmv, buffer(6, 1))
+        mme_tree:add_le(pf.rx_mmtype, buffer(7, 2))
+        local rc = f.reason_code()()
+        if rc == 1 then
+            mme_tree:add_le(pf.invalid_octet_offset, buffer(9, 2))
+            mme_tree:set_len(6)  -- 6=9+2-5
+        else
+            mme_tree:set_len(4)  -- 4=7+2-5
+        end
     end
 end
 
