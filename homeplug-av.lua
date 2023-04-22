@@ -132,8 +132,8 @@ local pb_values = {
 }
 
 local network_kinds = {
-    [0x00] = "In-home",
-    [0x0f] = "Access"
+    [0] = "In-home",
+    [1] = "Access"
 }
 
 local no_yes = {
@@ -204,8 +204,8 @@ local pf = {
     sta_reserved             = ProtoField.uint8("homeplugav.sta.reserved", "Reserved", base.DEC, nil, 0x01),
     sta_signal_level         = ProtoField.uint8("homeplugav.sta.signalLevel", "Signal Level", base.DEC, signal_levels),
     sta_ble                  = ProtoField.string("homeplugav.sta.ble", "Average Bit Loading Estimate"),
-    sta_ble_mantissa         = ProtoField.uint8("homeplugav.sta.ble.mantissa", "BLE Mantissa", base.DEC, nil, 0xf8),
-    sta_ble_exponent         = ProtoField.uint8("homeplugav.sta.ble.exponent", "BLE Exponent", base.DEC, nil, 0x07),
+    sta_ble_mantissa         = ProtoField.uint8("homeplugav.sta.ble.mantissa", "Mantissa", base.DEC, nil, 0xf8),
+    sta_ble_exponent         = ProtoField.uint8("homeplugav.sta.ble.exponent", "Exponent", base.DEC, nil, 0x07),
     mac_addr                 = ProtoField.ether("homeplugav.macAddr", "MAC Address"),
     homeplug_av_version      = ProtoField.uint8("homeplugav.hpavVersion", "HomePlug AV Version", base.DEC, homeplug_av_versions),
     oui                      = ProtoField.bytes("homeplugav.oui", "Organizationally Unique Identifier", base.COLON),
@@ -324,21 +324,28 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
             sta_tree:add(pf.sta_mac_addr, buffer(i, 6))
             sta_tree:add_le(pf.sta_tei, buffer(i + 6, 1))
             sta_tree:add_le(pf.sta_same_network, buffer(i + 7, 1))
-            sta_tree:add_le(pf.sta_network_kind, buffer(i + 8, 1))
-            sta_tree:add_le(pf.sta_snid, buffer(i + 8, 1))
-            sta_tree:add_le(pf.sta_status_bcco, buffer(i + 9, 1))
-            sta_tree:add_le(pf.sta_status_pco, buffer(i + 9, 1))
-            sta_tree:add_le(pf.sta_status_cco, buffer(i + 9, 1))
-            sta_tree:add_le(pf.sta_capability_bcco, buffer(i + 9, 1))
-            sta_tree:add_le(pf.sta_capability_pco, buffer(i + 9, 1))
-            sta_tree:add_le(pf.sta_capability_cco, buffer(i + 9, 1))
-            sta_tree:add_le(pf.sta_reserved, buffer(i + 9, 1))
+            do
+                local range = buffer(i + 8, 1)
+                sta_tree:add_le(pf.sta_network_kind, range)
+                sta_tree:add_le(pf.sta_snid, range)
+            end
+            do
+                local range = buffer(i + 9, 1)
+                sta_tree:add_le(pf.sta_status_bcco, range)
+                sta_tree:add_le(pf.sta_status_pco, range)
+                sta_tree:add_le(pf.sta_status_cco, range)
+                sta_tree:add_le(pf.sta_capability_bcco, range)
+                sta_tree:add_le(pf.sta_capability_pco, range)
+                sta_tree:add_le(pf.sta_capability_cco, range)
+                sta_tree:add_le(pf.sta_reserved, range)
+            end
             sta_tree:add_le(pf.sta_signal_level, buffer(i + 10, 1))
-            sta_tree:add_le(pf.sta_ble_mantissa, buffer(i + 11, 1)).hidden = true
-            sta_tree:add_le(pf.sta_ble_exponent, buffer(i + 11, 1)).hidden = true
             do
                 local range = buffer(i + 11, 1)
-                sta_tree:add(pf.sta_ble, range, to_ble(range))
+                local ble_tree = sta_tree:add(range, "Average Bit Loading Estimate")
+                ble_tree:add_le(pf.sta_ble_mantissa, range)
+                ble_tree:add_le(pf.sta_ble_exponent, range)
+                ble_tree:append_text(": " .. to_ble(range))
             end
             i = i + 12
         end
