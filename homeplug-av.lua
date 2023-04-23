@@ -310,6 +310,10 @@ local f = {
     ef_vs_oui           = Field.new("homeplugav.ef.vs.oui"),
     reason_code         = Field.new("homeplugav.rc")
 }
+
+local buffer_len
+local mmtype
+
 local function to_ble(range)
     local mantissa = f.sta_ble_mantissa()()
     local exponent = f.sta_ble_exponent()()
@@ -344,21 +348,176 @@ local function update_packet_info(pinfo)
     end
 end
 
+local function dissect_error_ind(buffer, mme_tree)
+    mme_tree:add_le(pf.reason_code, buffer(5, 1))
+    mme_tree:add_le(pf.rx_mmv, buffer(6, 1))
+    mme_tree:add_le(pf.rx_mmtype, buffer(7, 2))
+    local rc = f.reason_code()()
+    if rc == 1 then
+        mme_tree:add_le(pf.invalid_octet_offset, buffer(9, 2))
+        mme_tree:set_len(6)  -- 6=9+2-5
+    else
+        mme_tree:set_len(4)  -- 4=7+2-5
+    end
+end
+
+local function dissect_discover_list_cnf(buffer, mme_tree)
+    mme_tree:add_le(pf.num_stas, buffer(5, 1))
+    local num_stas = f.num_stas()()
+    local i = 6
+    for j = 1, num_stas do
+        local sta_tree = mme_tree:add(buffer(i, 12), "Station " .. j)
+        sta_tree:add(pf.sta_mac_addr, buffer(i, 6))
+        sta_tree:add_le(pf.sta_tei, buffer(i + 6, 1))
+        sta_tree:add_le(pf.sta_same_network, buffer(i + 7, 1))
+        do
+            local range = buffer(i + 8, 1)
+            sta_tree:add_le(pf.sta_network_kind, range)
+            sta_tree:add_le(pf.sta_snid, range)
+        end
+        do
+            local range = buffer(i + 9, 1)
+            sta_tree:add_le(pf.sta_status_bcco, range)
+            sta_tree:add_le(pf.sta_status_pco, range)
+            sta_tree:add_le(pf.sta_status_cco, range)
+            sta_tree:add_le(pf.sta_capability_bcco, range)
+            sta_tree:add_le(pf.sta_capability_pco, range)
+            sta_tree:add_le(pf.sta_capability_cco, range)
+            sta_tree:add_le(pf.sta_reserved, range)
+        end
+        sta_tree:add_le(pf.sta_signal_level, buffer(i + 10, 1))
+        do
+            local range = buffer(i + 11, 1)
+            local ble_tree = sta_tree:add(range, "Average Bit Loading Estimate")
+            ble_tree:add_le(pf.sta_ble_mantissa, range)
+            ble_tree:add_le(pf.sta_ble_exponent, range)
+            ble_tree:append_text(": " .. to_ble(range))
+        end
+        i = i + 12
+    end
+    mme_tree:add_le(pf.num_networks, buffer(i, 1))
+    i = i + 1
+    local num_networks = f.num_networks()()
+    for j = 1, num_networks do
+        local network_tree = mme_tree:add(buffer(i, 13), "Network " .. j)
+        do
+            local nid_tree = network_tree:add_le(pf.nw_nid, buffer(i, 7))
+            nid_tree.text = string.gsub(nid_tree.text, "0x00", "0x")
+            nid_tree:add_le(pf.nw_nid_sl, buffer(i + 6, 1))
+        end
+        do
+            local range = buffer(i + 7, 1)
+            network_tree:add_le(pf.nw_network_kind, range)
+            network_tree:add_le(pf.nw_snid, range)
+        end
+        network_tree:add_le(pf.nw_hybrid_mode, buffer(i + 8, 1))
+        network_tree:add_le(pf.nw_beacon_slots, buffer(i + 9, 1))
+        network_tree:add_le(pf.nw_coord_status, buffer(i + 10, 1))
+        do
+            local range = buffer(i + 11, 2)
+            network_tree:add_le(pf.nw_offset, range, to_network_offset(range))
+        end
+        i = i + 13
+    end
+    mme_tree:set_len(i - 5)
+end
+
+local function dissect_sta_cap_cnf(buffer, mme_tree)
+    mme_tree:add_le(pf.homeplug_av_version, buffer(5, 1))
+    mme_tree:add(pf.mac_addr, buffer(6, 6))
+    mme_tree:add(pf.oui, buffer(12, 3)):append_text(" (" .. ouis[f.oui().label] .. ")")
+    mme_tree:add_le(pf.capability_auto_connect, buffer(15, 1))
+    mme_tree:add_le(pf.capability_smoothing, buffer(16, 1))
+    mme_tree:add_le(pf.capability_cco, buffer(17, 1))
+    mme_tree:add_le(pf.capability_pco, buffer(18, 1))
+    mme_tree:add_le(pf.capability_bcco, buffer(19, 1))
+    mme_tree:add_le(pf.capability_soft_handover, buffer(20, 1))
+    mme_tree:add_le(pf.capability_two_symbol_fc, buffer(21, 1))
+    do
+        local range = buffer(22, 2)
+        mme_tree:add_le(pf.max_frame_len, range, to_frame_length_string(range))
+    end
+    mme_tree:add_le(pf.capability_homeplug_1_1, buffer(24, 1))
+    mme_tree:add_le(pf.interop_homeplug_1_0, buffer(25, 1))
+    mme_tree:add_le(pf.capability_regulatory, buffer(26, 1))
+    mme_tree:add_le(pf.capability_bidir_burst, buffer(27, 1))
+    mme_tree:add_le(pf.implementation_version, buffer(28, 2))
+    mme_tree:set_len(25)  -- 25=28+2-5
+end
+
+local function dissect_sta_identify_cnf(buffer, mme_tree)
+    mme_tree:add_le(pf.capability_green_phy, buffer(5, 1))
+    mme_tree:add_le(pf.capability_power_save, buffer(6, 1))
+    mme_tree:add_le(pf.capability_gp_pref_alloc, buffer(7, 1))
+    mme_tree:add_le(pf.capability_repeat_route, buffer(8, 1))
+    mme_tree:add_le(pf.homeplug_av_station, buffer(9, 1))
+    mme_tree:add_le(pf.extended_fields_len, buffer(10, 1))
+    local homeplug_av_station = f.homeplug_av_station()()
+    if homeplug_av_station == 0x01 then
+        local extended_tree = mme_tree:add(buffer(11), "Extended Fields")
+        extended_tree:add_le(pf.ef_capability_mimo, buffer(11, 1))
+        extended_tree:add_le(pf.ef_ext_freq_band, buffer(12, 1))
+        extended_tree:add_le(pf.ef_immed_repeat, buffer(13, 1))
+        extended_tree:add_le(pf.ef_short_delimiter, buffer(14, 1))
+        extended_tree:add_le(pf.ef_min_tx_gil, buffer(15, 1))
+        extended_tree:add_le(pf.ef_min_rx_gil, buffer(16, 1))
+        do
+            local range = buffer(17, 2)
+            extended_tree:add(pf.ef_min_carr_freq, range, to_frequency_string(range))
+        end
+        do
+            local range = buffer(19, 2)
+            extended_tree:add(pf.ef_max_carr_freq, range, to_frequency_string(range))
+        end
+        extended_tree:add_le(pf.ef_eebtm, buffer(21, 1))
+        do
+            local range = buffer(22, 1)
+            local value = range:le_uint()
+            if value < 2 then
+                extended_tree:add_le(pf.ef_max_pb_sym_enum, range)
+            else
+                extended_tree:add_le(pf.ef_max_pb_sym, range)
+            end
+        end
+        extended_tree:add_le(pf.ef_mimo_power, buffer(23, 1))
+        extended_tree:add_le(pf.ef_frame_256, buffer(24, 1))
+        extended_tree:add_le(pf.ef_vsinfo_len, buffer(25, 2))
+        local vsinfo_len = f.ef_vsinfo_len()()
+        if vsinfo_len ~= 0 then
+            local vsinfo_tree = extended_tree:add(buffer(27), "Vendor-Specific Information")
+            vsinfo_tree:add(pf.ef_vs_oui, buffer(27, 3)):append_text(" (" .. ouis[f.ef_vs_oui().label] .. ")")
+            vsinfo_tree:add(pf.ef_vs_vendor_defined, buffer(30))
+        end
+    end
+end
+
+local function dissect_homeplug_av_mme(buffer, mme_tree)
+    if mmtype == MMTYPE_DISCOVER_LIST_CNF then
+        dissect_discover_list_cnf(buffer, mme_tree)
+    elseif mmtype == MMTYPE_STA_CAP_CNF then
+        dissect_sta_cap_cnf(buffer, mme_tree)
+    elseif mmtype == MMTYPE_STA_IDENTIFY_CNF then
+        dissect_sta_identify_cnf(buffer, mme_tree)
+    elseif mmtype == MMTYPE_ERROR_IND then
+        dissect_error_ind(buffer, mme_tree)
+    end
+end
+
 function p_homeplug_av.dissector(buffer, pinfo, tree)
     buffer_len = buffer:len()
     if buffer_len < 46 then return end
 
-    local hpav_tree = tree:add(p_homeplug_av, buffer(), "HomePlug AV Protocol")
+    local protocol_tree = tree:add(p_homeplug_av, buffer(), "HomePlug AV Protocol")
 
-    hpav_tree:add_le(pf.mmv, buffer(0, 1))
-    local mmtype_tree = hpav_tree:add_le(pf.mmtype, buffer(1, 2))
+    protocol_tree:add_le(pf.mmv, buffer(0, 1))
+    local mmtype_tree = protocol_tree:add_le(pf.mmtype, buffer(1, 2))
     mmtype_tree:add_le(pf.mmtype_msbs, buffer(1, 2))
     mmtype_tree:add_le(pf.mmtype_lsbs, buffer(1, 2))
 
     mmtype = f.mmtype()()
 
     do
-        local fmi_tree = hpav_tree:add(pf.fmi, buffer(3, 2))
+        local fmi_tree = protocol_tree:add(pf.fmi, buffer(3, 2))
         fmi_tree:add(pf.fmi_nf_mi, buffer(3, 1))
         fmi_tree:add(pf.fmi_fn_mi, buffer(3, 1))
         fmi_tree:add(pf.fmi_fmsn,  buffer(4, 1))
@@ -368,144 +527,9 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
 
     if mmtype == MMTYPE_DISCOVER_LIST_REQ or mmtype == MMTYPE_STA_CAP_REQ or mmtype == MMTYPE_STA_IDENTIFY_REQ then return end
 
-    local mme_tree = hpav_tree:add(buffer(5), "Management Message Entry")
+    local mme_tree = protocol_tree:add(buffer(5), "Management Message Entry")
 
-    if mmtype == MMTYPE_DISCOVER_LIST_CNF then
-        mme_tree:add_le(pf.num_stas, buffer(5, 1))
-        local num_stas = f.num_stas()()
-        local i = 6
-        for j = 1, num_stas do
-            local sta_tree = mme_tree:add(buffer(i, 12), "Station " .. j)
-            sta_tree:add(pf.sta_mac_addr, buffer(i, 6))
-            sta_tree:add_le(pf.sta_tei, buffer(i + 6, 1))
-            sta_tree:add_le(pf.sta_same_network, buffer(i + 7, 1))
-            do
-                local range = buffer(i + 8, 1)
-                sta_tree:add_le(pf.sta_network_kind, range)
-                sta_tree:add_le(pf.sta_snid, range)
-            end
-            do
-                local range = buffer(i + 9, 1)
-                sta_tree:add_le(pf.sta_status_bcco, range)
-                sta_tree:add_le(pf.sta_status_pco, range)
-                sta_tree:add_le(pf.sta_status_cco, range)
-                sta_tree:add_le(pf.sta_capability_bcco, range)
-                sta_tree:add_le(pf.sta_capability_pco, range)
-                sta_tree:add_le(pf.sta_capability_cco, range)
-                sta_tree:add_le(pf.sta_reserved, range)
-            end
-            sta_tree:add_le(pf.sta_signal_level, buffer(i + 10, 1))
-            do
-                local range = buffer(i + 11, 1)
-                local ble_tree = sta_tree:add(range, "Average Bit Loading Estimate")
-                ble_tree:add_le(pf.sta_ble_mantissa, range)
-                ble_tree:add_le(pf.sta_ble_exponent, range)
-                ble_tree:append_text(": " .. to_ble(range))
-            end
-            i = i + 12
-        end
-        mme_tree:add_le(pf.num_networks, buffer(i, 1))
-        i = i + 1
-        local num_networks = f.num_networks()()
-        for j = 1, num_networks do
-            local network_tree = mme_tree:add(buffer(i, 13), "Network " .. j)
-            do
-                local nid_tree = network_tree:add_le(pf.nw_nid, buffer(i, 7))
-                nid_tree.text = string.gsub(nid_tree.text, "0x00", "0x")
-                nid_tree:add_le(pf.nw_nid_sl, buffer(i + 6, 1))
-            end
-            do
-                local range = buffer(i + 7, 1)
-                network_tree:add_le(pf.nw_network_kind, range)
-                network_tree:add_le(pf.nw_snid, range)
-            end
-            network_tree:add_le(pf.nw_hybrid_mode, buffer(i + 8, 1))
-            network_tree:add_le(pf.nw_beacon_slots, buffer(i + 9, 1))
-            network_tree:add_le(pf.nw_coord_status, buffer(i + 10, 1))
-            do
-                local range = buffer(i + 11, 2)
-                network_tree:add_le(pf.nw_offset, range, to_network_offset(range))
-            end
-            i = i + 13
-        end
-        mme_tree:set_len(i - 5)
-    elseif mmtype == MMTYPE_STA_CAP_CNF then
-        mme_tree:add_le(pf.homeplug_av_version, buffer(5, 1))
-        mme_tree:add(pf.mac_addr, buffer(6, 6))
-        mme_tree:add(pf.oui, buffer(12, 3)):append_text(" (" .. ouis[f.oui().label] .. ")")
-        mme_tree:add_le(pf.capability_auto_connect, buffer(15, 1))
-        mme_tree:add_le(pf.capability_smoothing, buffer(16, 1))
-        mme_tree:add_le(pf.capability_cco, buffer(17, 1))
-        mme_tree:add_le(pf.capability_pco, buffer(18, 1))
-        mme_tree:add_le(pf.capability_bcco, buffer(19, 1))
-        mme_tree:add_le(pf.capability_soft_handover, buffer(20, 1))
-        mme_tree:add_le(pf.capability_two_symbol_fc, buffer(21, 1))
-        do
-            local range = buffer(22, 2)
-            mme_tree:add_le(pf.max_frame_len, range, to_frame_length_string(range))
-        end
-        mme_tree:add_le(pf.capability_homeplug_1_1, buffer(24, 1))
-        mme_tree:add_le(pf.interop_homeplug_1_0, buffer(25, 1))
-        mme_tree:add_le(pf.capability_regulatory, buffer(26, 1))
-        mme_tree:add_le(pf.capability_bidir_burst, buffer(27, 1))
-        mme_tree:add_le(pf.implementation_version, buffer(28, 2))
-        mme_tree:set_len(25)  -- 25=28+2-5
-    elseif mmtype == MMTYPE_STA_IDENTIFY_CNF then
-        mme_tree:add_le(pf.capability_green_phy, buffer(5, 1))
-        mme_tree:add_le(pf.capability_power_save, buffer(6, 1))
-        mme_tree:add_le(pf.capability_gp_pref_alloc, buffer(7, 1))
-        mme_tree:add_le(pf.capability_repeat_route, buffer(8, 1))
-        mme_tree:add_le(pf.homeplug_av_station, buffer(9, 1))
-        mme_tree:add_le(pf.extended_fields_len, buffer(10, 1))
-        local homeplug_av_station = f.homeplug_av_station()()
-        if homeplug_av_station == 0x01 then
-            local extended_tree = mme_tree:add(buffer(11), "Extended Fields")
-            extended_tree:add_le(pf.ef_capability_mimo, buffer(11, 1))
-            extended_tree:add_le(pf.ef_ext_freq_band, buffer(12, 1))
-            extended_tree:add_le(pf.ef_immed_repeat, buffer(13, 1))
-            extended_tree:add_le(pf.ef_short_delimiter, buffer(14, 1))
-            extended_tree:add_le(pf.ef_min_tx_gil, buffer(15, 1))
-            extended_tree:add_le(pf.ef_min_rx_gil, buffer(16, 1))
-            do
-                local range = buffer(17, 2)
-                extended_tree:add(pf.ef_min_carr_freq, range, to_frequency_string(range))
-            end
-            do
-                local range = buffer(19, 2)
-                extended_tree:add(pf.ef_max_carr_freq, range, to_frequency_string(range))
-            end
-            extended_tree:add_le(pf.ef_eebtm, buffer(21, 1))
-            do
-                local range = buffer(22, 1)
-                local value = range:le_uint()
-                if value < 2 then
-                    extended_tree:add_le(pf.ef_max_pb_sym_enum, range)
-                else
-                    extended_tree:add_le(pf.ef_max_pb_sym, range)
-                end
-            end
-            extended_tree:add_le(pf.ef_mimo_power, buffer(23, 1))
-            extended_tree:add_le(pf.ef_frame_256, buffer(24, 1))
-            extended_tree:add_le(pf.ef_vsinfo_len, buffer(25, 2))
-            local vsinfo_len = f.ef_vsinfo_len()()
-            if vsinfo_len ~= 0 then
-                local vsinfo_tree = extended_tree:add(buffer(27), "Vendor-Specific Information")
-                vsinfo_tree:add(pf.ef_vs_oui, buffer(27, 3)):append_text(" (" .. ouis[f.ef_vs_oui().label] .. ")")
-                vsinfo_tree:add(pf.ef_vs_vendor_defined, buffer(30))
-            end
-        end
-    elseif mmtype == MMTYPE_ERROR_IND then
-        mme_tree:add_le(pf.reason_code, buffer(5, 1))
-        mme_tree:add_le(pf.rx_mmv, buffer(6, 1))
-        mme_tree:add_le(pf.rx_mmtype, buffer(7, 2))
-        local rc = f.reason_code()()
-        if rc == 1 then
-            mme_tree:add_le(pf.invalid_octet_offset, buffer(9, 2))
-            mme_tree:set_len(6)  -- 6=9+2-5
-        else
-            mme_tree:set_len(4)  -- 4=7+2-5
-        end
-    end
+    dissect_homeplug_av_mme(buffer, mme_tree)
 end
 
 local dt_ethertype = DissectorTable.get("ethertype")
