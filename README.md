@@ -17,7 +17,7 @@ It fully dissects the following Management Messages:
 | `0x6046` | CM\_MME\_ERROR.IND |
 
 ## Limitations
-1. No attempt is made to defragment fragmented messages. Messages are typically not fragmented.
+1. No attempt is made to defragment fragmented messages. Messages traversing in-home networks are typically not fragmented.
 2. Only a subset of the management messages in the HomePlug AV protocol are dissected.
 
 ## Installation
