@@ -2,7 +2,7 @@
 A HomePlug AV protocol dissector plugin for Wireshark.
 
 ## Overview
-The HomePlug AV<sup>[1]</sup> protocol is used by power line adapters that utilize HomePlug technology.
+The HomePlug AV<sup>[1]</sup> protocol (Ethertype 0x88e1) is used by power line adapters that use HomePlug technology.
 This dissector is an alternative to the HomePlug AV protocol dissector included with Wireshark.
 It fully dissects the following Management Messages:
 
@@ -15,6 +15,10 @@ It fully dissects the following Management Messages:
 | `0x6060` | CM\_STA\_IDENTIFY.REQ |
 | `0x6061` | CM\_STA\_IDENTIFY.CNF |
 | `0x6046` | CM\_MME\_ERROR.IND |
+
+## Limitations
+1. No attempt is made to defragment fragmented messages. Messages are typically not fragmented.
+2. Only a subset of the management messages in the HomePlug AV protocol are dissected.
 
 ## Installation
 Copy `homeplug-av.lua` into Wireshark's personal or global [plugin folder](https://www.wireshark.org/docs/wsug_html_chunked/ChPluginFolders.html).
