@@ -223,96 +223,104 @@ local pf = {
     mmtype_msbs              = ProtoField.uint16("homeplugav.mmtype.msbs", "Three MSBs", base.DEC, mmtype_msbs, 0xe000),
     mmtype_lsbs              = ProtoField.uint16("homeplugav.mmtype.lsbs", "Two LSBs", base.DEC, mmtype_lsbs, 0x0003),
     fmi                      = ProtoField.bytes("homeplugav.fmi", "Fragmentation Management Information", base.COLON),
-    fmi_nf_mi                = ProtoField.uint8("homeplugav.fmi.nfMi", "Number of Fragments", base.DEC, nil, 0xf0),
-    fmi_fn_mi                = ProtoField.uint8("homeplugav.fmi.fnMi", "Fragment Number", base.DEC, nil, 0x0f),
+    fmi_nf_mi                = ProtoField.uint8("homeplugav.fmi.nf_mi", "Number of Fragments", base.DEC, nil, 0xf0),
+    fmi_fn_mi                = ProtoField.uint8("homeplugav.fmi.fn_mi", "Fragment Number", base.DEC, nil, 0x0f),
     fmi_fmsn                 = ProtoField.uint8("homeplugav.fmi.fmsn", "Fragmentation Message Sequence Number", base.DEC),
-    num_stas                 = ProtoField.uint8("homeplugav.numStas", "Number of Stations Discovered", base.DEC),
-    num_networks             = ProtoField.uint8("homeplugav.numNetworks", "Number of Networks Discovered", base.DEC),
-    sta_mac_addr             = ProtoField.ether("homeplugav.sta.macAddr", "MAC Address"),
+    num_stas                 = ProtoField.uint8("homeplugav.num_stas", "Number of Stations Discovered", base.DEC),
+    num_networks             = ProtoField.uint8("homeplugav.num_networks", "Number of Networks Discovered", base.DEC),
+    sta_mac_addr             = ProtoField.ether("homeplugav.sta.mac_addr", "MAC Address"),
     sta_tei                  = ProtoField.uint8("homeplugav.sta.tei", "Terminal Equipment Identifier", base.DEC),
-    sta_same_network         = ProtoField.uint8("homeplugav.sta.sameNetwork", "Same Network", base.DEC, no_yes),
-    sta_network_kind         = ProtoField.uint8("homeplugav.sta.networkKind", "Network Type", base.DEC, network_kinds, 0xf0),
+    sta_same_network         = ProtoField.uint8("homeplugav.sta.same_network", "Same Network", base.DEC, no_yes),
+    sta_network_kind         = ProtoField.uint8("homeplugav.sta.network_kind", "Network Type", base.DEC, network_kinds, 0xf0),
     sta_snid                 = ProtoField.uint8("homeplugav.sta.snid", "Short Network Identifier", base.DEC, nil, 0x0f),
-    sta_status_bcco          = ProtoField.uint8("homeplugav.sta.statusBcco", "Backup Central Coordinator", base.DEC, no_yes, 0x80),
-    sta_status_pco           = ProtoField.uint8("homeplugav.sta.statusPco", "Proxy Coordinator", base.DEC, no_yes, 0x40),
-    sta_status_cco           = ProtoField.uint8("homeplugav.sta.statusCco", "Central Coordinator", base.DEC, no_yes, 0x20),
-    sta_capability_bcco      = ProtoField.uint8("homeplugav.sta.capabilityBcco", "Backup Central Coordinator Capability", base.DEC, no_yes, 0x10),
-    sta_capability_pco       = ProtoField.uint8("homeplugav.sta.capabilityPco", "Proxy Coordinator Capability", base.DEC, no_yes, 0x08),
-    sta_capability_cco       = ProtoField.uint8("homeplugav.sta.capabilityCco", "Central Coordinator Capability", base.DEC, cco_capabilities, 0x06),
+    sta_status_bcco          = ProtoField.uint8("homeplugav.sta.status_bcco", "Backup Central Coordinator", base.DEC, no_yes, 0x80),
+    sta_status_pco           = ProtoField.uint8("homeplugav.sta.status_pco", "Proxy Coordinator", base.DEC, no_yes, 0x40),
+    sta_status_cco           = ProtoField.uint8("homeplugav.sta.status_cco", "Central Coordinator", base.DEC, no_yes, 0x20),
+    sta_capability_bcco      = ProtoField.uint8("homeplugav.sta.capability_bcco", "Backup Central Coordinator Capability", base.DEC, no_yes, 0x10),
+    sta_capability_pco       = ProtoField.uint8("homeplugav.sta.capability_pco", "Proxy Coordinator Capability", base.DEC, no_yes, 0x08),
+    sta_capability_cco       = ProtoField.uint8("homeplugav.sta.capability_cco", "Central Coordinator Capability", base.DEC, cco_capabilities, 0x06),
     sta_reserved             = ProtoField.uint8("homeplugav.sta.reserved", "Reserved", base.DEC, nil, 0x01),
-    sta_signal_level         = ProtoField.uint8("homeplugav.sta.signalLevel", "Signal Level", base.DEC, signal_levels),
+    sta_signal_level         = ProtoField.uint8("homeplugav.sta.signal_level", "Signal Level", base.DEC, signal_levels),
     sta_ble                  = ProtoField.string("homeplugav.sta.ble", "Average Bit Loading Estimate"),
     sta_ble_mantissa         = ProtoField.uint8("homeplugav.sta.ble.mantissa", "Mantissa", base.DEC, nil, 0xf8),
     sta_ble_exponent         = ProtoField.uint8("homeplugav.sta.ble.exponent", "Exponent", base.DEC, nil, 0x07),
     nw_nid                   = ProtoField.uint64("homeplugav.nw.nid", "Network Identifier", base.HEX),
     nw_nid_sl                = ProtoField.uint8("homeplugav.nw.nid.sl", "Security Level", base.DEC, security_levels, 0x30),
-    nw_network_kind          = ProtoField.uint8("homeplugav.nw.networkKind", "Network Type", base.DEC, network_kinds, 0xf0),
+    nw_network_kind          = ProtoField.uint8("homeplugav.nw.network_kind", "Network Type", base.DEC, network_kinds, 0xf0),
     nw_snid                  = ProtoField.uint8("homeplugav.nw.snid", "Short Network Identifier", base.DEC, nil, 0x0f),
-    nw_hybrid_mode           = ProtoField.uint8("homeplugav.nw.hybridMode", "Hybrid Mode", base.DEC, hybrid_modes),
-    nw_beacon_slots          = ProtoField.uint8("homeplugav.nw.beaconSlots", "Number of Beacon Slots", base.DEC, beacon_slots),
-    nw_coord_status          = ProtoField.uint8("homeplugav.nw.coordStatus", "Coordinating Status of Central Coordinator", base.DEC, coordinating_status),
+    nw_hybrid_mode           = ProtoField.uint8("homeplugav.nw.hybrid_mode", "Hybrid Mode", base.DEC, hybrid_modes),
+    nw_beacon_slots          = ProtoField.uint8("homeplugav.nw.beacon_slots", "Number of Beacon Slots", base.DEC, beacon_slots),
+    nw_coord_status          = ProtoField.uint8("homeplugav.nw.coord_status", "Coordinating Status of Central Coordinator", base.DEC, coordinating_status),
     nw_offset                = ProtoField.string("homeplugav.nw.offset", "Offset between Beacon Regions"),
-    mac_addr                 = ProtoField.ether("homeplugav.macAddr", "MAC Address"),
-    homeplug_av_version      = ProtoField.uint8("homeplugav.hpavVersion", "HomePlug AV Version", base.DEC, homeplug_av_versions),
+    mac_addr                 = ProtoField.ether("homeplugav.mac_addr", "MAC Address"),
+    homeplug_av_version      = ProtoField.uint8("homeplugav.hpav_version", "HomePlug AV Version", base.DEC, homeplug_av_versions),
     oui                      = ProtoField.bytes("homeplugav.oui", "Organizationally Unique Identifier", base.COLON),
-    capability_auto_connect  = ProtoField.uint8("homeplugav.capabilityAutoConnect", "Auto Connect Capability", base.DEC, no_yes),
-    capability_smoothing     = ProtoField.uint8("homeplugav.capabilitySmoothing", "Smoothing Capability", base.DEC, no_yes),
-    capability_cco           = ProtoField.uint8("homeplugav.capabilityCco", "Central Coordinator Capability", base.DEC, no_yes),
-    capability_pco           = ProtoField.uint8("homeplugav.capabilityPco", "Proxy Coordinator Capability", base.DEC, no_yes),
-    capability_bcco          = ProtoField.uint8("homeplugav.capabilityBcco", "Backup Central Coordinator Capability", base.DEC, no_yes),
-    capability_soft_handover = ProtoField.uint8("homeplugav.capabilitySoftHandover", "Soft Handover Capability", base.DEC, no_yes),
-    capability_two_symbol_fc = ProtoField.uint8("homeplugav.capabilityTwoSymbolFC", "Two-Symbol Frame Control Capability", base.DEC, no_yes),
-    max_frame_len            = ProtoField.string("homeplugav.maxFrameLen", "Maximum Frame Length"),
-    capability_homeplug_1_1  = ProtoField.uint8("homeplugav.capabilityHomeplug11", "HomePlug 1.1 Capability", base.DEC, no_yes),
-    interop_homeplug_1_0     = ProtoField.uint8("homeplugav.interopHomeplug10", "HomePlug 1.0 Interoperability", base.DEC, no_yes),
-    capability_regulatory    = ProtoField.uint8("homeplugav.capabilityRegulatory", "Regulatory Capability", base.DEC, regulatory_domains),
-    capability_bidir_burst   = ProtoField.uint8("homeplugav.capabilityBidirBurst", "Bidirectional Bursting Capability", base.DEC, bidir_bursting_values),
-    implementation_version   = ProtoField.uint16("homeplugav.implVersion", "Implementation Version", base.DEC),
-    capability_green_phy     = ProtoField.uint8("homeplugav.capabilityGreenPhy", "Green PHY Capability", base.DEC, no_yes),
-    capability_power_save    = ProtoField.uint8("homeplugav.capabilityPowerSave", "Power Save Capability", base.DEC, no_yes),
-    capability_gp_pref_alloc = ProtoField.uint8("homeplugav.capabilityGpPrefAlloc", "Green PHY Preferred Allocation Capability", base.DEC, no_yes),
-    capability_repeat_route  = ProtoField.uint8("homeplugav.capabilityRepeatRoute", "Repeating and Routing Capability", base.DEC, no_yes),
-    homeplug_av_station      = ProtoField.uint8("homeplugav.hpavStation", "HomePlug AV Station Type", base.DEC, homeplug_av_station_types),
-    extended_fields_len      = ProtoField.uint8("homeplugav.extendedFieldsLen", "Extended Fields Length", base.DEC),
-    ef_capability_mimo       = ProtoField.uint8("homeplugav.ef.capabilityMimo", "MIMO Capability", base.DEC, mimo_capabilities),
-    ef_ext_freq_band         = ProtoField.uint8("homeplugav.ef.extFreqBand", "Extended Frequency Band Capability", base.DEC, no_yes),
-    ef_immed_repeat          = ProtoField.uint8("homeplugav.ef.immedRepeat", "Immediate Repeating Capability", base.DEC, no_yes),
-    ef_short_delimiter       = ProtoField.uint8("homeplugav.ef.shortDelimiter", "Short Delimiter Capability", base.DEC, no_yes),
-    ef_min_tx_gil            = ProtoField.uint8("homeplugav.ef.minTxGil", "Minimum Transmit Guard Interval", base.DEC, guard_intervals),
-    ef_min_rx_gil            = ProtoField.uint8("homeplugav.ef.minRxGil", "Minimum Receive Guard Interval", base.DEC, guard_intervals),
-    ef_min_carr_freq         = ProtoField.string("homeplugav.ef.minCarrFreq", "Minimum Carrier Frequency"),
-    ef_max_carr_freq         = ProtoField.string("homeplugav.ef.maxCarrFreq", "Maximum Carrier Frequency"),
+    capability_auto_connect  = ProtoField.uint8("homeplugav.capability_auto_connect", "Auto Connect Capability", base.DEC, no_yes),
+    capability_smoothing     = ProtoField.uint8("homeplugav.capability_smoothing", "Smoothing Capability", base.DEC, no_yes),
+    capability_cco           = ProtoField.uint8("homeplugav.capability_cco", "Central Coordinator Capability", base.DEC, no_yes),
+    capability_pco           = ProtoField.uint8("homeplugav.capability_pco", "Proxy Coordinator Capability", base.DEC, no_yes),
+    capability_bcco          = ProtoField.uint8("homeplugav.capability_bcco", "Backup Central Coordinator Capability", base.DEC, no_yes),
+    capability_soft_handover = ProtoField.uint8("homeplugav.capability_soft_handover", "Soft Handover Capability", base.DEC, no_yes),
+    capability_two_symbol_fc = ProtoField.uint8("homeplugav.capability_two_symbol_fc", "Two-Symbol Frame Control Capability", base.DEC, no_yes),
+    max_frame_len            = ProtoField.string("homeplugav.max_frame_len", "Maximum Frame Length"),
+    capability_homeplug_1_1  = ProtoField.uint8("homeplugav.capability_homeplug_1_1", "HomePlug 1.1 Capability", base.DEC, no_yes),
+    interop_homeplug_1_0     = ProtoField.uint8("homeplugav.interop_homeplug_1_0", "HomePlug 1.0 Interoperability", base.DEC, no_yes),
+    capability_regulatory    = ProtoField.uint8("homeplugav.capability_regulatory", "Regulatory Capability", base.DEC, regulatory_domains),
+    capability_bidir_burst   = ProtoField.uint8("homeplugav.capability_bidir_burst", "Bidirectional Bursting Capability", base.DEC, bidir_bursting_values),
+    implementation_version   = ProtoField.uint16("homeplugav.impl_version", "Implementation Version", base.DEC),
+    capability_green_phy     = ProtoField.uint8("homeplugav.capability_green_phy", "Green PHY Capability", base.DEC, no_yes),
+    capability_power_save    = ProtoField.uint8("homeplugav.capability_power_save", "Power Save Capability", base.DEC, no_yes),
+    capability_gp_pref_alloc = ProtoField.uint8("homeplugav.capability_gp_pref_alloc", "Green PHY Preferred Allocation Capability", base.DEC, no_yes),
+    capability_repeat_route  = ProtoField.uint8("homeplugav.capability_repeat_route", "Repeating and Routing Capability", base.DEC, no_yes),
+    homeplug_av_station      = ProtoField.uint8("homeplugav.hpav_station", "HomePlug AV Station Type", base.DEC, homeplug_av_station_types),
+    extended_fields_len      = ProtoField.uint8("homeplugav.extended_fields_len", "Extended Fields Length", base.DEC),
+    ef_capability_mimo       = ProtoField.uint8("homeplugav.ef.capability_mimo", "MIMO Capability", base.DEC, mimo_capabilities),
+    ef_ext_freq_band         = ProtoField.uint8("homeplugav.ef.ext_freq_band", "Extended Frequency Band Capability", base.DEC, no_yes),
+    ef_immed_repeat          = ProtoField.uint8("homeplugav.ef.immed_repeat", "Immediate Repeating Capability", base.DEC, no_yes),
+    ef_short_delimiter       = ProtoField.uint8("homeplugav.ef.short_delimiter", "Short Delimiter Capability", base.DEC, no_yes),
+    ef_min_tx_gil            = ProtoField.uint8("homeplugav.ef.min_tx_gil", "Minimum Transmit Guard Interval", base.DEC, guard_intervals),
+    ef_min_rx_gil            = ProtoField.uint8("homeplugav.ef.min_tx_gil", "Minimum Receive Guard Interval", base.DEC, guard_intervals),
+    ef_min_carr_freq         = ProtoField.string("homeplugav.ef.min_carr_freq", "Minimum Carrier Frequency"),
+    ef_max_carr_freq         = ProtoField.string("homeplugav.ef.max_carr_freq", "Maximum Carrier Frequency"),
     ef_eebtm                 = ProtoField.uint8("homeplugav.ef.eebtm", "Encoding of Extended Broadcast Tone Mask", base.DEC, eebtm_values),
-    ef_max_pb_sym            = ProtoField.uint8("homeplugav.ef.maxPbSym", "Maximum PHY Blocks per Symbol", base.DEC),
-    ef_max_pb_sym_enum       = ProtoField.uint8("homeplugav.ef.maxPbSym", "Maximum PHY Blocks per Symbol", base.DEC, pb_values),
-    ef_mimo_power            = ProtoField.uint8("homeplugav.ef.mimoPower", "MIMO Power Allocation", base.DEC, power_levels),
-    ef_frame_256             = ProtoField.uint8("homeplugav.ef.frame256", "256-bit Frame Control Capability", base.DEC, no_yes),
-    ef_vsinfo_len            = ProtoField.uint16("homeplugav.ef.vsinfoLen", "Vendor-Specific Information Length", base.DEC),
+    ef_max_pb_sym            = ProtoField.uint8("homeplugav.ef.max_pb_sym", "Maximum PHY Blocks per Symbol", base.DEC),
+    ef_max_pb_sym_enum       = ProtoField.uint8("homeplugav.ef.max_pb_sym", "Maximum PHY Blocks per Symbol", base.DEC, pb_values),
+    ef_mimo_power            = ProtoField.uint8("homeplugav.ef.mimo_power", "MIMO Power Allocation", base.DEC, power_levels),
+    ef_frame_256             = ProtoField.uint8("homeplugav.ef.frame_256", "256-bit Frame Control Capability", base.DEC, no_yes),
+    ef_vsinfo_len            = ProtoField.uint16("homeplugav.ef.vsinfo_len", "Vendor-Specific Information Length", base.DEC),
     ef_vs_oui                = ProtoField.bytes("homeplugav.ef.vs.oui", "Organizationally Unique Identifier", base.COLON),
-    ef_vs_vendor_defined     = ProtoField.bytes("homeplugav.ef.vs.vendorDefined", "Vendor Defined", base.COLON),
+    ef_vs_vendor_defined     = ProtoField.bytes("homeplugav.ef.vs.vendor_defined", "Vendor Defined", base.COLON),
     reason_code              = ProtoField.uint8("homeplugav.rc", "Reason Code", base.DEC, reason_codes),
-    rx_mmv                   = ProtoField.uint8("homeplugav.rxMmv", "Received Management Message Version", base.DEC, mmvs),
-    rx_mmtype                = ProtoField.uint16("homeplugav.rxMmtype", "Received Management Message Type", base.HEX, mmtypes),
-    invalid_octet_offset     = ProtoField.uint16("homeplugav.invalidOffset", base.DEC)
+    rx_mmv                   = ProtoField.uint8("homeplugav.rx_mmv", "Received Management Message Version", base.DEC, mmvs),
+    rx_mmtype                = ProtoField.uint16("homeplugav.rx_mmtype", "Received Management Message Type", base.HEX, mmtypes),
+    invalid_octet_offset     = ProtoField.uint16("homeplugav.invalid_offset", base.DEC)
 }
 
-p_homeplug_av.fields = pf
+local ef = {
+    invalid_mmv    = ProtoExpert.new("homeplugav.invalid_mmv.expert", "Invalid Management Message Version", expert.group.PROTOCOL, expert.severity.ERROR),
+    unexpected_mmv = ProtoExpert.new("homeplugav.unrecognized_mmv.expert", "Unexpected Management Message Version", expert.group.UNDECODED, expert.severity.WARN)
+}
+
+p_homeplug_av.fields  = pf
+p_homeplug_av.experts = ef
 
 local f = {
+    mmv                 = Field.new("homeplugav.mmv"),
     mmtype              = Field.new("homeplugav.mmtype"),
-    num_stas            = Field.new("homeplugav.numStas"),
-    num_networks        = Field.new("homeplugav.numNetworks"),
+    num_stas            = Field.new("homeplugav.num_stas"),
+    num_networks        = Field.new("homeplugav.num_networks"),
     sta_ble_mantissa    = Field.new("homeplugav.sta.ble.mantissa"),
     sta_ble_exponent    = Field.new("homeplugav.sta.ble.exponent"),
     oui                 = Field.new("homeplugav.oui"),
-    homeplug_av_station = Field.new("homeplugav.hpavStation"),
-    ef_vsinfo_len       = Field.new("homeplugav.ef.vsinfoLen"),
+    homeplug_av_station = Field.new("homeplugav.hpav_station"),
+    ef_vsinfo_len       = Field.new("homeplugav.ef.vsinfo_len"),
     ef_vs_oui           = Field.new("homeplugav.ef.vs.oui"),
     reason_code         = Field.new("homeplugav.rc")
 }
 
 local buffer_len
 local mmtype
+local mmv
 
 local function to_ble(range)
     local mantissa = f.sta_ble_mantissa()()
@@ -493,13 +501,29 @@ end
 
 local function dissect_homeplug_av_mme(buffer, mme_tree)
     if mmtype == MMTYPE_DISCOVER_LIST_CNF then
-        dissect_discover_list_cnf(buffer, mme_tree)
+        if mmv == 1 then
+            dissect_discover_list_cnf(buffer, mme_tree)
+        else
+            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
+        end
     elseif mmtype == MMTYPE_STA_CAP_CNF then
-        dissect_sta_cap_cnf(buffer, mme_tree)
+        if mmv == 1 then
+            dissect_sta_cap_cnf(buffer, mme_tree)
+        else
+            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
+        end
     elseif mmtype == MMTYPE_STA_IDENTIFY_CNF then
-        dissect_sta_identify_cnf(buffer, mme_tree)
+        if mmv == 1 then
+            dissect_sta_identify_cnf(buffer, mme_tree)
+        else
+            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
+        end
     elseif mmtype == MMTYPE_ERROR_IND then
-        dissect_error_ind(buffer, mme_tree)
+        if mmv == 1 then
+            dissect_error_ind(buffer, mme_tree)
+        else
+            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
+        end
     end
 end
 
@@ -515,6 +539,12 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
     mmtype_tree:add_le(pf.mmtype_lsbs, buffer(1, 2))
 
     mmtype = f.mmtype()()
+    mmv    = f.mmv()()
+
+    if mmv > 2 then
+        protocol_tree:add_proto_expert_info(ef.invalid_mmv)
+        return
+    end
 
     do
         local fmi_tree = protocol_tree:add(pf.fmi, buffer(3, 2))
@@ -525,7 +555,12 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
 
     update_packet_info(pinfo)
 
-    if mmtype == MMTYPE_DISCOVER_LIST_REQ or mmtype == MMTYPE_STA_CAP_REQ or mmtype == MMTYPE_STA_IDENTIFY_REQ then return end
+    if mmtype == MMTYPE_DISCOVER_LIST_REQ or mmtype == MMTYPE_STA_CAP_REQ or mmtype == MMTYPE_STA_IDENTIFY_REQ then
+        if mmv ~= 1 then
+            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
+        end
+        return
+    end
 
     local mme_tree = protocol_tree:add(buffer(5), "Management Message Entry")
 
