@@ -6,15 +6,15 @@ The HomePlug AV<sup>[1]</sup> protocol (Ethertype 0x88e1) is used by power line 
 This dissector is an alternative to the HomePlug AV protocol dissector included with Wireshark.
 It fully dissects the following Management Messages:
 
-| MMTYPE | Interpretation |
-| :---: | :--- |
-| `0x0014` | CC\_DISCOVER\_LIST.REQ |
-| `0x0015` | CC\_DISCOVER\_LIST.CNF |
-| `0x6034` | CM\_STA\_CAP.REQ |
-| `0x6035` | CM\_STA\_CAP.CNF |
-| `0x6060` | CM\_STA\_IDENTIFY.REQ |
-| `0x6061` | CM\_STA\_IDENTIFY.CNF |
-| `0x6046` | CM\_MME\_ERROR.IND |
+| MMTYPE | MMV | Interpretation |
+| :---: | :---: | :--- |
+| `0x0014` | `1` | CC\_DISCOVER\_LIST.REQ |
+| `0x0015` | `1` | CC\_DISCOVER\_LIST.CNF |
+| `0x6034` | `1` | CM\_STA\_CAP.REQ |
+| `0x6035` | `1` | CM\_STA\_CAP.CNF |
+| `0x6060` | `1` | CM\_STA\_IDENTIFY.REQ |
+| `0x6061` | `1` | CM\_STA\_IDENTIFY.CNF |
+| `0x6046` | `1` | CM\_MME\_ERROR.IND |
 
 ## Limitations
 1. No attempt is made to defragment fragmented messages. Messages traversing in-home networks are typically not fragmented.
