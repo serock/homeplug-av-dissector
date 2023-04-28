@@ -297,8 +297,10 @@ local pf = {
 }
 
 local ef = {
-    invalid_mmv    = ProtoExpert.new("homeplugav.invalid_mmv.expert", "Invalid Management Message Version", expert.group.PROTOCOL, expert.severity.ERROR),
-    unexpected_mmv = ProtoExpert.new("homeplugav.unrecognized_mmv.expert", "Unexpected Management Message Version", expert.group.UNDECODED, expert.severity.WARN)
+    invalid_mmv           = ProtoExpert.new("homeplugav.invalid_mmv.expert", "Invalid Management Message Version", expert.group.MALFORMED, expert.severity.ERROR),
+    unexpected_mmv        = ProtoExpert.new("homeplugav.unexpected_mmv.expert", "Unexpected Management Message Version", expert.group.UNDECODED, expert.severity.ERROR),
+    unexpected_mmv_mmtype = ProtoExpert.new("homeplugav.unexpected_mmv_mmtype.expert", "Unexpected Management Message Version and Type", expert.group.UNDECODED, expert.severity.ERROR),
+    unknown_mmtype        = ProtoExpert.new("homeplugav.unknown_data.expert", "Unknown Management Message Type", expert.group.UNDECODED, expert.severity.ERROR)
 }
 
 p_homeplug_av.fields  = pf
@@ -348,25 +350,9 @@ local function to_network_offset(range)
     return range:le_uint() * 10.24 .. " microseconds"
 end
 
-local function update_packet_info(pinfo)
-    pinfo.cols.protocol = p_homeplug_av.name
-
-    if mmtypes[mmtype] ~= nil then
-        pinfo.cols.info:set(mmtypes[mmtype])
-    end
-end
-
-local function dissect_error_ind(buffer, mme_tree)
-    mme_tree:add_le(pf.reason_code, buffer(5, 1))
-    mme_tree:add_le(pf.rx_mmv, buffer(6, 1))
-    mme_tree:add_le(pf.rx_mmtype, buffer(7, 2))
-    local rc = f.reason_code()()
-    if rc == 1 then
-        mme_tree:add_le(pf.invalid_octet_offset, buffer(9, 2))
-        mme_tree:set_len(6)  -- 6=9+2-5
-    else
-        mme_tree:set_len(4)  -- 4=7+2-5
-    end
+local function dissect_discover_list_req(buffer, mme_tree)
+    mme_tree:append_text(": null")
+    mme_tree:set_len(0)
 end
 
 local function dissect_discover_list_cnf(buffer, mme_tree)
@@ -430,6 +416,24 @@ local function dissect_discover_list_cnf(buffer, mme_tree)
     mme_tree:set_len(i - 5)
 end
 
+local function dissect_error_ind(buffer, mme_tree)
+    mme_tree:add_le(pf.reason_code, buffer(5, 1))
+    mme_tree:add_le(pf.rx_mmv, buffer(6, 1))
+    mme_tree:add_le(pf.rx_mmtype, buffer(7, 2))
+    local rc = f.reason_code()()
+    if rc == 1 then
+        mme_tree:add_le(pf.invalid_octet_offset, buffer(9, 2))
+        mme_tree:set_len(6)  -- 6=9+2-5
+    else
+        mme_tree:set_len(4)  -- 4=7+2-5
+    end
+end
+
+local function dissect_sta_cap_req(buffer, mme_tree)
+    mme_tree:append_text(": null")
+    mme_tree:set_len(0)
+end
+
 local function dissect_sta_cap_cnf(buffer, mme_tree)
     mme_tree:add_le(pf.homeplug_av_version, buffer(5, 1))
     mme_tree:add(pf.mac_addr, buffer(6, 6))
@@ -451,6 +455,11 @@ local function dissect_sta_cap_cnf(buffer, mme_tree)
     mme_tree:add_le(pf.capability_bidir_burst, buffer(27, 1))
     mme_tree:add_le(pf.implementation_version, buffer(28, 2))
     mme_tree:set_len(25)  -- 25=28+2-5
+end
+
+local function dissect_sta_identify_req(buffer, mme_tree)
+    mme_tree:append_text(": null")
+    mme_tree:set_len(0)
 end
 
 local function dissect_sta_identify_cnf(buffer, mme_tree)
@@ -499,32 +508,29 @@ local function dissect_sta_identify_cnf(buffer, mme_tree)
     end
 end
 
-local function dissect_homeplug_av_mme(buffer, mme_tree)
-    if mmtype == MMTYPE_DISCOVER_LIST_CNF then
-        if mmv == 1 then
-            dissect_discover_list_cnf(buffer, mme_tree)
-        else
-            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
-        end
+local function dissect_homeplug_av_mme_v1(buffer, mme_tree)
+    if mmtype == MMTYPE_DISCOVER_LIST_REQ then
+        dissect_discover_list_req(buffer, mme_tree)
+    elseif mmtype == MMTYPE_DISCOVER_LIST_CNF then
+        dissect_discover_list_cnf(buffer, mme_tree)
+    elseif mmtype == MMTYPE_STA_CAP_REQ then
+        dissect_sta_cap_req(buffer, mme_tree)
     elseif mmtype == MMTYPE_STA_CAP_CNF then
-        if mmv == 1 then
-            dissect_sta_cap_cnf(buffer, mme_tree)
-        else
-            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
-        end
+        dissect_sta_cap_cnf(buffer, mme_tree)
+    elseif mmtype == MMTYPE_STA_IDENTIFY_REQ then
+        dissect_sta_identify_req(buffer, mme_tree)
     elseif mmtype == MMTYPE_STA_IDENTIFY_CNF then
-        if mmv == 1 then
-            dissect_sta_identify_cnf(buffer, mme_tree)
-        else
-            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
-        end
+        dissect_sta_identify_cnf(buffer, mme_tree)
     elseif mmtype == MMTYPE_ERROR_IND then
-        if mmv == 1 then
-            dissect_error_ind(buffer, mme_tree)
-        else
-            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
-        end
+        dissect_error_ind(buffer, mme_tree)
+    else
+        mme_tree:add_proto_expert_info(ef.unexpected_mmv_mmtype)
     end
+end
+
+local function update_packet_info(pinfo)
+    pinfo.cols.protocol = p_homeplug_av.name
+    pinfo.cols.info:set(mmtypes[mmtype])
 end
 
 function p_homeplug_av.dissector(buffer, pinfo, tree)
@@ -546,6 +552,13 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
         return
     end
 
+    if mmtypes[mmtype] == nil then
+        protocol_tree:add_proto_expert_info(ef.unknown_mmtype)
+        return
+    end
+
+    update_packet_info(pinfo)
+
     do
         local fmi_tree = protocol_tree:add(pf.fmi, buffer(3, 2))
         fmi_tree:add(pf.fmi_nf_mi, buffer(3, 1))
@@ -553,18 +566,13 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
         fmi_tree:add(pf.fmi_fmsn,  buffer(4, 1))
     end
 
-    update_packet_info(pinfo)
-
-    if mmtype == MMTYPE_DISCOVER_LIST_REQ or mmtype == MMTYPE_STA_CAP_REQ or mmtype == MMTYPE_STA_IDENTIFY_REQ then
-        if mmv ~= 1 then
-            mme_tree:add_proto_expert_info(ef.unexpected_mmv)
-        end
-        return
-    end
-
     local mme_tree = protocol_tree:add(buffer(5), "Management Message Entry")
 
-    dissect_homeplug_av_mme(buffer, mme_tree)
+    if mmv == 1 then
+        dissect_homeplug_av_mme_v1(buffer, mme_tree)
+    else
+        mme_tree:add_proto_expert_info(ef.unexpected_mmv)
+    end
 end
 
 local dt_ethertype = DissectorTable.get("ethertype")
