@@ -38,6 +38,8 @@ local MMTYPE_DISCOVER_LIST_REQ = 0x0014
 local MMTYPE_DISCOVER_LIST_CNF = 0x0015
 local MMTYPE_STA_CAP_REQ       = 0x6034
 local MMTYPE_STA_CAP_CNF       = 0x6035
+local MMTYPE_NW_STATS_REQ      = 0x6048
+local MMTYPE_NW_STATS_CNF      = 0x6049
 local MMTYPE_STA_IDENTIFY_REQ  = 0x6060
 local MMTYPE_STA_IDENTIFY_CNF  = 0x6061
 local MMTYPE_ERROR_IND         = 0x6046
@@ -124,6 +126,8 @@ local mmtypes = {
     [MMTYPE_DISCOVER_LIST_CNF] = "Discover List confirmation",
     [MMTYPE_STA_CAP_REQ]       = "Station Capabilities request",
     [MMTYPE_STA_CAP_CNF]       = "Station Capabilities confirmation",
+    [MMTYPE_NW_STATS_REQ]      = "Network Statistics request",
+    [MMTYPE_NW_STATS_CNF]      = "Network Statistics confirmation",
     [MMTYPE_STA_IDENTIFY_REQ]  = "Station Identification Information request",
     [MMTYPE_STA_IDENTIFY_CNF]  = "Station Identification Information confirmation",
     [MMTYPE_ERROR_IND]         = "Error indication"
@@ -183,6 +187,10 @@ local power_levels = {
    [7] = "3.5 dB"
 }
 
+local rate_units = {
+    " Mbps"
+}
+
 local reason_codes = {
    [0] = "Management Message Entry not supported",
    [1] = "Supported Management Message Entry with invalid fields",
@@ -226,8 +234,8 @@ local pf = {
     fmi_nf_mi                = ProtoField.uint8("homeplugav.fmi.nf_mi", "Number of Fragments", base.DEC, nil, 0xf0),
     fmi_fn_mi                = ProtoField.uint8("homeplugav.fmi.fn_mi", "Fragment Number", base.DEC, nil, 0x0f),
     fmi_fmsn                 = ProtoField.uint8("homeplugav.fmi.fmsn", "Fragmentation Message Sequence Number", base.DEC),
-    num_stas                 = ProtoField.uint8("homeplugav.num_stas", "Number of Stations Discovered", base.DEC),
-    num_networks             = ProtoField.uint8("homeplugav.num_networks", "Number of Networks Discovered", base.DEC),
+    num_stas                 = ProtoField.uint8("homeplugav.num_stas", "Number of Stations", base.DEC),
+    num_networks             = ProtoField.uint8("homeplugav.num_networks", "Number of Networks", base.DEC),
     sta_mac_addr             = ProtoField.ether("homeplugav.sta.mac_addr", "MAC Address"),
     sta_tei                  = ProtoField.uint8("homeplugav.sta.tei", "Terminal Equipment Identifier", base.DEC),
     sta_same_network         = ProtoField.uint8("homeplugav.sta.same_network", "Same Network", base.DEC, no_yes),
@@ -289,11 +297,16 @@ local pf = {
     ef_frame_256             = ProtoField.uint8("homeplugav.ef.frame_256", "256-bit Frame Control Capability", base.DEC, no_yes),
     ef_vsinfo_len            = ProtoField.uint16("homeplugav.ef.vsinfo_len", "Vendor-Specific Information Length", base.DEC),
     ef_vs_oui                = ProtoField.bytes("homeplugav.ef.vs.oui", "Organizationally Unique Identifier", base.COLON),
-    ef_vs_vendor_defined     = ProtoField.bytes("homeplugav.ef.vs.vendor_defined", "Vendor Defined", base.COLON),
+    ef_vs_vendor_defined     = ProtoField.bytes("homeplugav.ef.vs.vendor_defined", "Vendor Defined", base.SPACE),
     reason_code              = ProtoField.uint8("homeplugav.rc", "Reason Code", base.DEC, reason_codes),
     rx_mmv                   = ProtoField.uint8("homeplugav.rx_mmv", "Received Management Message Version", base.DEC, mmvs),
     rx_mmtype                = ProtoField.uint16("homeplugav.rx_mmtype", "Received Management Message Type", base.HEX, mmtypes),
-    invalid_octet_offset     = ProtoField.uint16("homeplugav.invalid_offset", base.DEC)
+    invalid_octet_offset     = ProtoField.uint16("homeplugav.invalid_offset", base.DEC),
+    sta_dest_addr            = ProtoField.ether("mediaxtream.sta.dest_addr", "Destination Address (DA)"),
+    sta_tx_rate_v1           = ProtoField.uint8("homeplugav.sta.tx_rate_v1", "Transmit Rate to DA", base.UNIT_STRING, rate_units),
+    sta_rx_rate_v1           = ProtoField.uint8("homeplugav.sta.rx_rate_v1", "Receive Rate from DA", base.UNIT_STRING, rate_units),
+    sta_tx_rate_v2           = ProtoField.uint16("homeplugav.sta.tx_rate_v2", "Transmit Rate to DA", base.UNIT_STRING, rate_units),
+    sta_rx_rate_v2           = ProtoField.uint16("homeplugav.sta.rx_rate_v2", "Receive Rate from DA", base.UNIT_STRING, rate_units)
 }
 
 local ef = {
@@ -429,6 +442,44 @@ local function dissect_error_ind(buffer, mme_tree)
     end
 end
 
+local function dissect_nw_stats_req_v1(buffer, mme_tree)
+    mme_tree:append_text(": null")
+    mme_tree:set_len(0)
+end
+
+local function dissect_nw_stats_cnf_v1(buffer, mme_tree)
+    mme_tree:add_le(pf.num_stas, buffer(5, 1))
+    local num_stas = f.num_stas()()
+    local i = 6
+    for j = 1, num_stas do
+        local sta_tree = mme_tree:add(buffer(i, 8), "Station " .. j)
+        sta_tree:add(pf.sta_dest_addr, buffer(i, 6))
+        sta_tree:add_le(pf.sta_tx_rate_v1, buffer(i + 6, 1))
+        sta_tree:add_le(pf.sta_rx_rate_v1, buffer(i + 7, 1))
+        i = i + 8
+    end
+    mme_tree:set_len(i - 5)
+end
+
+local function dissect_nw_stats_req_v2(buffer, mme_tree)
+    mme_tree:append_text(": null")
+    mme_tree:set_len(0)
+end
+
+local function dissect_nw_stats_cnf_v2(buffer, mme_tree)
+    mme_tree:add_le(pf.num_stas, buffer(5, 1))
+    local num_stas = f.num_stas()()
+    local i = 6
+    for j = 1, num_stas do
+        local sta_tree = mme_tree:add(buffer(i, 10), "Station " .. j)
+        sta_tree:add(pf.sta_dest_addr, buffer(i, 6))
+        sta_tree:add_le(pf.sta_tx_rate_v2, buffer(i + 6, 2))
+        sta_tree:add_le(pf.sta_rx_rate_v2, buffer(i + 8, 2))
+        i = i + 10
+    end
+    mme_tree:set_len(i - 5)
+end
+
 local function dissect_sta_cap_req(buffer, mme_tree)
     mme_tree:append_text(": null")
     mme_tree:set_len(0)
@@ -437,7 +488,11 @@ end
 local function dissect_sta_cap_cnf(buffer, mme_tree)
     mme_tree:add_le(pf.homeplug_av_version, buffer(5, 1))
     mme_tree:add(pf.mac_addr, buffer(6, 6))
-    mme_tree:add(pf.oui, buffer(12, 3)):append_text(" (" .. ouis[f.oui().label] .. ")")
+    local oui_tree = mme_tree:add(pf.oui, buffer(12, 3))
+    local manufacturer = ouis[f.oui().label]
+    if manufacturer ~= nil then
+        oui_tree:append_text(" (" .. manufacturer .. ")")
+    end
     mme_tree:add_le(pf.capability_auto_connect, buffer(15, 1))
     mme_tree:add_le(pf.capability_smoothing, buffer(16, 1))
     mme_tree:add_le(pf.capability_cco, buffer(17, 1))
@@ -502,7 +557,11 @@ local function dissect_sta_identify_cnf(buffer, mme_tree)
         local vsinfo_len = f.ef_vsinfo_len()()
         if vsinfo_len ~= 0 then
             local vsinfo_tree = extended_tree:add(buffer(27), "Vendor-Specific Information")
-            vsinfo_tree:add(pf.ef_vs_oui, buffer(27, 3)):append_text(" (" .. ouis[f.ef_vs_oui().label] .. ")")
+            local oui_tree = vsinfo_tree:add(pf.ef_vs_oui, buffer(27, 3))
+            local manufacturer = ouis[f.ef_vs_oui().label]
+            if manufacturer ~= nil then
+                oui_tree:append_text(" (" .. manufacturer .. ")")
+            end
             vsinfo_tree:add(pf.ef_vs_vendor_defined, buffer(30))
         end
     end
@@ -517,12 +576,26 @@ local function dissect_homeplug_av_mme_v1(buffer, mme_tree)
         dissect_sta_cap_req(buffer, mme_tree)
     elseif mmtype == MMTYPE_STA_CAP_CNF then
         dissect_sta_cap_cnf(buffer, mme_tree)
+    elseif mmtype == MMTYPE_NW_STATS_REQ then
+        dissect_nw_stats_req_v1(buffer, mme_tree)
+    elseif mmtype == MMTYPE_NW_STATS_CNF then
+        dissect_nw_stats_cnf_v1(buffer, mme_tree)
     elseif mmtype == MMTYPE_STA_IDENTIFY_REQ then
         dissect_sta_identify_req(buffer, mme_tree)
     elseif mmtype == MMTYPE_STA_IDENTIFY_CNF then
         dissect_sta_identify_cnf(buffer, mme_tree)
     elseif mmtype == MMTYPE_ERROR_IND then
         dissect_error_ind(buffer, mme_tree)
+    else
+        mme_tree:add_proto_expert_info(ef.unexpected_mmv_mmtype)
+    end
+end
+
+local function dissect_homeplug_av_mme_v2(buffer, mme_tree)
+    if mmtype == MMTYPE_NW_STATS_REQ then
+        dissect_nw_stats_req_v2(buffer, mme_tree)
+    elseif mmtype == MMTYPE_NW_STATS_CNF then
+        dissect_nw_stats_cnf_v2(buffer, mme_tree)
     else
         mme_tree:add_proto_expert_info(ef.unexpected_mmv_mmtype)
     end
@@ -568,7 +641,9 @@ function p_homeplug_av.dissector(buffer, pinfo, tree)
 
     local mme_tree = protocol_tree:add(buffer(5), "Management Message Entry")
 
-    if mmv == 1 then
+    if mmv == 2 then
+        dissect_homeplug_av_mme_v2(buffer, mme_tree)
+    elseif mmv == 1 then
         dissect_homeplug_av_mme_v1(buffer, mme_tree)
     else
         mme_tree:add_proto_expert_info(ef.unexpected_mmv)
